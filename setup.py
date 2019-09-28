@@ -1,8 +1,7 @@
 from setuptools import setup, find_packages
 
 if __name__ == "__main__":
-    with open("VERSION.txt") as version_file:
-        version = version_file.read().strip()
+    version = "0.0.1"
 
     with open("README.md", "r") as readme_file:
         long_description = readme_file.read()
