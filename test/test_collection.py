@@ -6,7 +6,9 @@ import jdoc
 
 from . import test_module
 
+at_most_3_6 = pytest.mark.skipif(sys.version_info >= (3, 6), reason="Python 3.6 and below returns different function signatures")
 at_least_3_7 = pytest.mark.skipif(sys.version_info < (3, 7), reason="Python 3.6 and below returns different function signatures")
+
 
 def test_documented_object_defaults():
     obj = 1
@@ -123,6 +125,7 @@ def test_class_signature(class_):
     assert class_.oneliner() == "Class(x: float)"
 
 
+@at_least_3_7
 def test_class_children(class_, init, method, method_nodoc):
     assert class_.children() == [init, method, method_nodoc]
 
