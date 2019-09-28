@@ -1,7 +1,12 @@
+import sys
+
+import pytest
+
 import jdoc
 
 from . import test_module
 
+at_least_3_7 = pytest.mark.skipif(sys.version_info < (3, 7), reason="Python 3.6 and below returns different function signatures")
 
 def test_documented_object_defaults():
     obj = 1
@@ -31,6 +36,7 @@ def test_function_children(function):
     assert function.children() == []
 
 
+@at_least_3_7
 def test_function_signature(function):
     assert function.oneliner() == "function(x: int, y: str)"
 
@@ -68,12 +74,14 @@ def test_method_children(init, method, method_nodoc):
     assert method_nodoc.children() == []
 
 
+@at_least_3_7
 def test_method_signature(init, method, method_nodoc):
     assert init.oneliner() == "__init__(self, x: float)"
     assert method.oneliner() == "method(self, y: float)"
     assert method_nodoc.oneliner() == "method_nodoc(self)"
 
 
+@at_least_3_7
 def test_method_assemble(init, method, method_nodoc):
     assert (
         method.full_doc().strip()
@@ -109,6 +117,7 @@ def test_class_doc(class_):
     assert class_.text() == """This is a test class!"""
 
 
+@at_least_3_7
 def test_class_signature(class_):
     assert class_.oneliner() == "Class(x: float)"
 
@@ -117,6 +126,7 @@ def test_class_children(class_, init, method, method_nodoc):
     assert class_.children() == [init, method, method_nodoc]
 
 
+@at_least_3_7
 def test_class_assemble(class_):
     class_.include_children = True
     assert (
@@ -157,6 +167,7 @@ def test_module_children(module, class_, class_nodoc, function, function_nodoc):
     assert module.children() == [class_, class_nodoc, function, function_nodoc]
 
 
+@at_least_3_7
 def test_module_assemble(module):
     module.include_children = True
     assert (
@@ -222,6 +233,7 @@ def test_package_signature(package):
     assert package.oneliner() == ""
 
 
+@at_least_3_7
 def test_package_assemble(package):
     package.include_children = True
     assert (
