@@ -41,6 +41,7 @@ def test_function_signature(function):
     assert function.oneliner() == "function(x: int, y: str)"
 
 
+@at_least_3_7
 def test_function_assemble(function):
     assert (
         function.full_doc().strip()
