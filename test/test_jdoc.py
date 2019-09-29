@@ -71,9 +71,9 @@ def test_method_import(init, method, method_nodoc):
 
 
 def test_method_heading_level(init, method, method_nodoc):
-    assert init.heading_level == 3
-    assert method.heading_level == 3
-    assert method_nodoc.heading_level == 3
+    assert init.heading_level == 2
+    assert method.heading_level == 2
+    assert method_nodoc.heading_level == 2
 
 
 def test_method_doc(init, method, method_nodoc):
@@ -99,14 +99,14 @@ def test_method_signature(init, method, method_nodoc):
 def test_method_assemble(init, method, method_nodoc):
     assert (
         method.full_doc().strip()
-        == """### `method(self, y: float)`
+        == """## `method(self, y: float)`
 
 This is a test method!"""
     )
-    assert method_nodoc.full_doc().strip() == """### `method_nodoc(self)`"""
+    assert method_nodoc.full_doc().strip() == """## `method_nodoc(self)`"""
     assert (
         init.full_doc().strip()
-        == """### `__init__(self, x: float)`
+        == """## `__init__(self, x: float)`
 
 This is a test init!"""
     )
@@ -141,35 +141,6 @@ def test_class_children(class_, init, method, classmethod, staticmethod, method_
     assert class_.children() == [init, method, classmethod, staticmethod, method_nodoc]
 
 
-@at_least_3_7
-def test_class_assemble(class_):
-    class_.include_children = True
-    assert (
-        class_.full_doc().strip()
-        == """## `Class(x: float)`
-
-This is a test class!
-
-### `__init__(self, x: float)`
-
-This is a test init!
-
-### `method(self, y: float)`
-
-This is a test method!
-
-### `classmethod(cls)`
-
-This is a test classmethod!
-
-### `staticmethod()`
-
-This is a test staticmethod!
-
-### `method_nodoc(self)`"""
-    )
-
-
 def test_module_import(module):
     assert module.obj is test_module
 
@@ -190,49 +161,8 @@ def test_module_children(module, class_, class_nodoc, function, function_nodoc):
     assert module.children() == [class_, class_nodoc, function, function_nodoc]
 
 
-@at_least_3_7
-def test_module_assemble(module):
-    module.include_children = True
-    assert (
-        module.full_doc().strip()
-        == """# `test.test_module`
-
-This is a test module!
-
-## `Class(x: float)`
-
-This is a test class!
-
-### `__init__(self, x: float)`
-
-This is a test init!
-
-### `method(self, y: float)`
-
-This is a test method!
-
-### `classmethod(cls)`
-
-This is a test classmethod!
-
-### `staticmethod()`
-
-This is a test staticmethod!
-
-### `method_nodoc(self)`
-
-## `ClassNoDoc(*args, **kwargs)`
-
-## `function(x: int, y: str)`
-
-This is a test function!
-
-## `function_nodoc()`"""
-    )
-
-
 def test_markdown_heading_level(markdown):
-    assert markdown.heading_level is None
+    assert markdown.heading_level == 0
 
 
 def test_markdown_doc(markdown):
@@ -253,7 +183,7 @@ def test_markdown_assemble(markdown):
 
 
 def test_package_heading_level(package):
-    assert package.heading_level is None
+    assert package.heading_level == 0
 
 
 def test_package_children(package, markdown, module, sub_module_file):
@@ -264,63 +194,8 @@ def test_package_signature(package):
     assert package.oneliner() == ""
 
 
-@at_least_3_7
-def test_package_assemble(package):
-    package.include_children = True
-    assert (
-        package.full_doc().strip()
-        == """# README.md
-
-This is a test README.md!
-
-# `test.test_module`
-
-This is a test module!
-
-## `Class(x: float)`
-
-This is a test class!
-
-### `__init__(self, x: float)`
-
-This is a test init!
-
-### `method(self, y: float)`
-
-This is a test method!
-
-### `classmethod(cls)`
-
-This is a test classmethod!
-
-### `staticmethod()`
-
-This is a test staticmethod!
-
-### `method_nodoc(self)`
-
-## `ClassNoDoc(*args, **kwargs)`
-
-## `function(x: int, y: str)`
-
-This is a test function!
-
-## `function_nodoc()`
-
-# `test.test_module.sub_module_file`
-
-This is a test sub-module in a file!
-
-## `sub_module_function()`"""
-    )
-
-
-def test_magic_bad_impl():
-    class CustomMagicWithoutGetWrapper(jdoc.Magic):
-        pass
-
-    with pytest.raises(NotImplementedError):
-        jdoc.PackageWrapper([CustomMagicWithoutGetWrapper()]).children()
+def test_plugin_base():
+    assert jdoc.PackageWrapper([jdoc.Plugin()]).children() == [jdoc.ObjectWrapper(None)]
 
 
 def test_indent():
@@ -335,24 +210,6 @@ def test_horizontal_line():
     assert jdoc.PackageWrapper([jdoc.HorizontalLine()]).children() == [
         jdoc.HorizontalLineWrapper()
     ]
-
-
-def test_include_children():
-    class Class(object):
-        def method(self):
-            pass
-
-    result_without_include_children = jdoc.PackageWrapper([Class]).children()
-    class_wrapper_without_children = jdoc.ClassWrapper(Class)
-
-    result_with_include_children = jdoc.PackageWrapper(
-        [jdoc.IncludeChildren(Class)]
-    ).children()
-    class_wrapper_with_children = jdoc.ClassWrapper(Class)
-    class_wrapper_with_children.include_children = True
-
-    assert result_without_include_children == [class_wrapper_without_children]
-    assert result_with_include_children == [class_wrapper_with_children]
 
 
 def test_table_of_contents():

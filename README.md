@@ -26,42 +26,54 @@ document([
 
 # Table of Contents
 
-* `jdoc`
-    * `document(objects: list, filename: str)`
-    * `HorizontalLine()`
-    * `TableOfContents(header: str = 'Table of Contents')`
-    * `IncludeChildren(obj)`
-    * `Indent()`
-    * `Dedent()`
-    * `ObjectWrapper(obj: object)`
-        * `__init__(self, obj: object)`
-        * `text(self) -> str`
-        * `full_doc(self) -> str`
-        * `oneliner(self) -> str`
-        * `children(self) -> List[ForwardRef('ObjectWrapper')]`
-        * `from_object(cls, obj: object) -> 'ObjectWrapper'`
-    * `Magic()`
-        * `__init__(self)`
-        * `get_wrapper(self)`
-        * `post_hook(self, children: List[jdoc.ObjectWrapper])`
+* `document(objects: list, filename: str)`
+* `Plugin()`
+    * `__init__(self)`
+    * `get_wrapper(self) -> jdoc.ObjectWrapper`
+    * `post_hook(self, children: List[jdoc.ObjectWrapper])`
+* `HorizontalLine()`
+* `TableOfContents(header: str = 'Table of Contents')`
+* `IncludeChildren(obj)`
+* `Indent()`
+* `Dedent()`
+* `ObjectWrapper(obj: object)`
+    * `__init__(self, obj: object)`
+    * `text(self) -> str`
+    * `full_doc(self) -> str`
+    * `oneliner(self) -> str`
+    * `from_object(cls, obj: object) -> 'ObjectWrapper'`
 
 ---
-
-# `jdoc`
-
-Tools for collecting documentation
 
 ## `document(objects: list, filename: str)`
 
 Takes a list of objects and returns a string with documentation for all of them.
 
 Each element of `objects` may either be a string (in which case it is considered a filename for a document),
-a module, class, method or function, or an instance of a `Magic` class:
+a module, class, method or function, or an instance of a `Plugin` class:
 
-* Instances of `Magic` classes introduce special behaviours (see the documentation for those classes)
+* Instances of `Plugin` classes introduce special behaviours (see the documentation for those classes)
 * Any other object is fed into `ObjectWrapper.from_object`.
 
 ---
+
+## `Plugin()`
+
+Base class for objects that can be added to the list passed to `document()` in order to get special behaviors.
+
+Subclasses may implement `get_wrapper()`, and may optionally implement `post_hook`.
+
+* `get_wrapper` should return an instance of `ObjectWrapper`. That instance's `full_doc()`, `oneliner()` and `text()`
+  methods will be used to add text into the output. If not implemented, an `ObjectWrapper(None)` will be returned,
+  which will not add any text to the input.
+* `post_hook` takes in a list of `ObjectWrapper` objects. This is used in e.g. the `TableOfContents` plugin to let
+  the corresponding `ObjectWrapper` call each of their `oneliner()` methods to generate a table of contents.
+
+### `__init__(self)`
+
+### `get_wrapper(self) -> jdoc.ObjectWrapper`
+
+### `post_hook(self, children: List[jdoc.ObjectWrapper])`
 
 ## `HorizontalLine()`
 
@@ -122,21 +134,9 @@ Returns a one-line representation of the object. For functions and method, this 
 
 For classes, this is the signature of the `__init__` function. For modules, this is the import statement.
 
-### `children(self) -> List[ForwardRef('ObjectWrapper')]`
-
-Returns all children of `self`.
-
 ### `from_object(cls, obj: object) -> 'ObjectWrapper'`
 
 Factory function which detects the type of `obj` and returns an appropriate subclass of `DocumentedObject`.
-
-## `Magic()`
-
-### `__init__(self)`
-
-### `get_wrapper(self)`
-
-### `post_hook(self, children: List[jdoc.ObjectWrapper])`
 
 ---
 

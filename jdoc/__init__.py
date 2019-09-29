@@ -42,14 +42,13 @@ def _clean_up_docstring(func):
 class ObjectWrapper(object):
     """Base class for objects that should be documented."""
 
-    heading_level = 0
-
     def __init__(self, obj: object):
         """Initializes the DocumentedObject with the object that it wraps."""
         self.obj = obj
         self.include_children = False
         self.includes = set()
         self.excludes = set()
+        self.heading_level = 0
 
     def __repr__(self):
         return "<{} {}>".format(type(self).__name__, self.oneliner())
@@ -62,6 +61,9 @@ class ObjectWrapper(object):
         except AttributeError:
             equal = False
         return equal
+
+    def __hash__(self):
+        return hash(id(self))
 
     @_clean_up_docstring
     def text(self) -> str:
@@ -87,6 +89,7 @@ class ObjectWrapper(object):
         For classes, this is the signature of the `__init__` function. For modules, this is the import statement."""
         return ""
 
+    @functools.lru_cache()
     def children(self) -> List["ObjectWrapper"]:
         """Returns all children of `self`."""
         return []
@@ -114,7 +117,9 @@ class ObjectWrapper(object):
 class FunctionWrapper(ObjectWrapper):
     """Represents a function."""
 
-    heading_level = 2
+    def __init__(self, obj):
+        super().__init__(obj)
+        self.heading_level = 2
 
     def oneliner(self):
         signature = str(inspect.signature(self.obj))
@@ -137,7 +142,9 @@ class FunctionWrapper(ObjectWrapper):
 class MethodWrapper(ObjectWrapper):
     """Represents a method."""
 
-    heading_level = 3
+    def __init__(self, obj):
+        super().__init__(obj)
+        self.heading_level = 2
 
     oneliner = FunctionWrapper.oneliner
     full_doc = FunctionWrapper.full_doc
@@ -154,10 +161,9 @@ class StaticMethodWrapper(MethodWrapper):
 class ClassWrapper(ObjectWrapper):
     """Represents a class."""
 
-    heading_level = 2
-
     def __init__(self, obj):
         super().__init__(obj)
+        self.heading_level = 2
 
     def oneliner(self) -> str:
         signature_with_self = inspect.signature(self.obj.__init__)
@@ -203,6 +209,7 @@ class ClassWrapper(ObjectWrapper):
 
         return is_child
 
+    @functools.lru_cache()
     def children(self) -> List[MethodWrapper]:
         children = [
             ObjectWrapper.from_object(obj)
@@ -221,7 +228,9 @@ class ClassWrapper(ObjectWrapper):
 class ModuleWrapper(ObjectWrapper):
     """Represents a module."""
 
-    heading_level = 1
+    def __init__(self, obj):
+        super().__init__(obj)
+        self.heading_level = 1
 
     def _is_child(self, obj: object) -> bool:
         is_child = inspect.isclass(obj) | inspect.isfunction(obj)
@@ -237,6 +246,7 @@ class ModuleWrapper(ObjectWrapper):
 
         return is_child
 
+    @functools.lru_cache()
     def children(self) -> List["ObjectWrapper"]:
         children = [
             ObjectWrapper.from_object(obj)
@@ -275,8 +285,6 @@ class ModuleWrapper(ObjectWrapper):
 class MarkdownWrapper(ObjectWrapper):
     """Represents a Markdown document."""
 
-    heading_level = None
-
     def __init__(self, filename: str):
         super().__init__(None)
         self.filename = filename
@@ -295,51 +303,67 @@ class MarkdownWrapper(ObjectWrapper):
 class PackageWrapper(ObjectWrapper):
     """Represents a documented package."""
 
-    heading_level = None
-
     def __init__(self, objects: list):
         """Initializes the PackageWrapper with a list of objects."""
         super().__init__(None)
         self.objects = objects
 
+    @functools.lru_cache()
     def children(self) -> List[ObjectWrapper]:
         """Converts `self.object` to a list of children, each of which is a `DocumentedObject`."""
         children = []
-        magics = []
+        plugins = []
 
         for obj in self.objects:
-            if isinstance(obj, Magic):
+            if isinstance(obj, Plugin):
                 child = obj.get_wrapper()
-                magics.append(obj)
+                plugins.append(obj)
             else:
                 child = ObjectWrapper.from_object(obj)
             children.append(child)
             if self.include_children:
                 child.include_children = True
 
-        for magic in magics:
-            magic.post_hook(children)
+        plugins.append(IndentPostProcessing())
+
+        for plugin in plugins:
+            plugin.post_hook(children)
 
         return children
 
     @_clean_up_docstring
     def full_doc(self) -> str:
         """Returns a string with documentation for the module and all classes and functions defined there."""
-        return "\n".join(child.full_doc() for child in self.children())
+        docs = []
+        for child in self.children():
+            doc = child.full_doc()
+            docs.append(doc)
+        return "\n".join(docs)
 
 
-class Magic(object):
+class Plugin(object):
+    """Base class for objects that can be added to the list passed to `document()` in order to get special behaviors.
+
+    Subclasses may implement `get_wrapper()`, and may optionally implement `post_hook`.
+
+    * `get_wrapper` should return an instance of `ObjectWrapper`. That instance's `full_doc()`, `oneliner()` and `text()`
+      methods will be used to add text into the output. If not implemented, an `ObjectWrapper(None)` will be returned,
+      which will not add any text to the input.
+    * `post_hook` takes in a list of `ObjectWrapper` objects. This is used in e.g. the `TableOfContents` plugin to let
+      the corresponding `ObjectWrapper` call each of their `oneliner()` methods to generate a table of contents.
+    """
+
     def __init__(self):
         pass
 
-    def get_wrapper(self):
-        raise NotImplementedError
+    def get_wrapper(self) -> ObjectWrapper:
+        return ObjectWrapper(None)
 
     def post_hook(self, children: List[ObjectWrapper]):
         pass
 
 
-class Markdown(Magic):
+class Markdown(Plugin):
     """Add `Markdown(filename)` to the list of objects passed to `document()` to "copy-paste" the contents of that
     Markdown file into the output."""
 
@@ -351,7 +375,7 @@ class Markdown(Magic):
         return MarkdownWrapper(self.filename)
 
 
-class Indent(Magic):
+class Indent(Plugin):
     """Add `Indent()` to the list of objects passed to `document()` to increase the indentation level by one in the
     table of contents from this point.
 
@@ -366,7 +390,7 @@ class Indent(Magic):
         pass
 
 
-class Dedent(Magic):
+class Dedent(Plugin):
     """Add `Indent()` to the list of objects passed to `document()` to reduce the indentation level by one in the
     table of contents from this point."""
 
@@ -378,7 +402,7 @@ class Dedent(Magic):
         pass
 
 
-class IncludeChildren(Magic):
+class IncludeChildren(Plugin):
     """Wrap this around an object passed to `document()` to automatically include all of its children in the
     documentation output.
 
@@ -396,14 +420,14 @@ class IncludeChildren(Magic):
         return obj
 
 
-class HorizontalLine(Magic):
+class HorizontalLine(Plugin):
     """Add `HorizontalLine()` to the list of objects passed to `document()` to insert a horizontal line."""
 
     def get_wrapper(self):
         return HorizontalLineWrapper()
 
 
-class TableOfContents(Magic):
+class TableOfContents(Plugin):
     """Add `TableOfContents()` to the list of objects passed to `document()` to insert a table of contents.
 
     It is only supported to have one TableOfContents.
@@ -434,6 +458,27 @@ class DedentWrapper(ObjectWrapper):
         super().__init__(None)
 
 
+class IndentPostProcessing(Plugin):
+    def post_hook(self, children: List[ObjectWrapper]):
+        indent = 0
+
+        def fix_indent(obj):
+            nonlocal indent
+            if isinstance(obj, IndentWrapper):
+                indent += 1
+            elif isinstance(obj, DedentWrapper):
+                indent -= 1
+            obj.heading_level += indent
+            if obj.include_children:
+                indent += 1
+                for child in obj.children():
+                    fix_indent(child)
+                indent -= 1
+
+        for child in children:
+            fix_indent(child)
+
+
 class TableOfContentsWrapper(ObjectWrapper):
     def __init__(self, header):
         super().__init__(None)
@@ -443,19 +488,15 @@ class TableOfContentsWrapper(ObjectWrapper):
     def full_doc(self) -> str:
         output = ["# {}".format(self.header), ""]
         indent = 0
-        heading_offset = 0
 
         def add_line(obj):
-            nonlocal indent, heading_offset
+            nonlocal indent
 
             if isinstance(obj, IndentWrapper):
                 indent += 1
-                heading_offset += 1
             elif isinstance(obj, DedentWrapper):
                 indent -= 1
-                heading_offset -= 1
 
-            obj.heading_level += heading_offset
             oneliner = obj.oneliner()
             if oneliner:
                 line = "    " * indent + "* `" + oneliner + "`"
@@ -484,9 +525,9 @@ def document(objects: list, filename: str):
     """Takes a list of objects and returns a string with documentation for all of them.
 
     Each element of `objects` may either be a string (in which case it is considered a filename for a document),
-    a module, class, method or function, or an instance of a `Magic` class:
+    a module, class, method or function, or an instance of a `Plugin` class:
 
-    * Instances of `Magic` classes introduce special behaviours (see the documentation for those classes)
+    * Instances of `Plugin` classes introduce special behaviours (see the documentation for those classes)
     * Any other object is fed into `ObjectWrapper.from_object`.
     """
     package = PackageWrapper(objects)
