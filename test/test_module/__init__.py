@@ -11,6 +11,14 @@ class Class(object):
     def method(self, y: float):
         """This is a test method!"""
 
+    @classmethod
+    def classmethod(cls):
+        """This is a test classmethod!"""
+
+    @staticmethod
+    def staticmethod():
+        """This is a test staticmethod!"""
+
     def method_nodoc(self):
         pass
 

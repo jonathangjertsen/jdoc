@@ -297,7 +297,7 @@ class PackageWrapper(ObjectWrapper):
 
     heading_level = None
 
-    def __init__(self, objects: List[Union[str, types.ModuleType]]):
+    def __init__(self, objects: list):
         """Initializes the PackageWrapper with a list of objects."""
         super().__init__(None)
         self.objects = objects
@@ -443,15 +443,19 @@ class TableOfContentsWrapper(ObjectWrapper):
     def full_doc(self) -> str:
         output = ["# {}".format(self.header), ""]
         indent = 0
+        heading_offset = 0
 
         def add_line(obj):
-            nonlocal indent
+            nonlocal indent, heading_offset
 
             if isinstance(obj, IndentWrapper):
                 indent += 1
+                heading_offset += 1
             elif isinstance(obj, DedentWrapper):
                 indent -= 1
+                heading_offset -= 1
 
+            obj.heading_level += heading_offset
             oneliner = obj.oneliner()
             if oneliner:
                 line = "    " * indent + "* `" + oneliner + "`"

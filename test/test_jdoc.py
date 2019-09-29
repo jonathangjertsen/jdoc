@@ -6,20 +6,31 @@ import jdoc
 
 from . import test_module
 
-at_most_3_6 = pytest.mark.skipif(sys.version_info >= (3, 6), reason="Python 3.6 and below returns different function signatures")
-at_least_3_7 = pytest.mark.skipif(sys.version_info < (3, 7), reason="Python 3.6 and below returns different function signatures")
+at_most_3_6 = pytest.mark.skipif(
+    sys.version_info >= (3, 6),
+    reason="Python 3.6 and below returns different function signatures",
+)
+at_least_3_7 = pytest.mark.skipif(
+    sys.version_info < (3, 7),
+    reason="Python 3.6 and below returns different function signatures",
+)
 
 
-def test_documented_object_defaults():
+def test_object_wrapper_defaults():
     obj = 1
     assert jdoc.ObjectWrapper(obj).oneliner() == ""
     assert jdoc.ObjectWrapper.from_object(obj) == jdoc.ObjectWrapper(obj)
 
 
-def test_documented_object_equivalence():
+def test_object_wrapper_equivalence():
     obj = 1
     assert jdoc.ObjectWrapper(obj) == jdoc.ObjectWrapper(obj)
     assert jdoc.ObjectWrapper(obj) != "42"
+
+
+def test_object_wrapper_repr():
+    obj = 1
+    assert repr(jdoc.ObjectWrapper(obj)) == "<ObjectWrapper >"
 
 
 def test_function_import(function):
@@ -126,8 +137,8 @@ def test_class_signature(class_):
 
 
 @at_least_3_7
-def test_class_children(class_, init, method, method_nodoc):
-    assert class_.children() == [init, method, method_nodoc]
+def test_class_children(class_, init, method, classmethod, staticmethod, method_nodoc):
+    assert class_.children() == [init, method, classmethod, staticmethod, method_nodoc]
 
 
 @at_least_3_7
@@ -146,6 +157,14 @@ This is a test init!
 ### `method(self, y: float)`
 
 This is a test method!
+
+### `classmethod(cls)`
+
+This is a test classmethod!
+
+### `staticmethod()`
+
+This is a test staticmethod!
 
 ### `method_nodoc(self)`"""
     )
@@ -191,6 +210,14 @@ This is a test init!
 ### `method(self, y: float)`
 
 This is a test method!
+
+### `classmethod(cls)`
+
+This is a test classmethod!
+
+### `staticmethod()`
+
+This is a test staticmethod!
 
 ### `method_nodoc(self)`
 
@@ -262,6 +289,14 @@ This is a test init!
 
 This is a test method!
 
+### `classmethod(cls)`
+
+This is a test classmethod!
+
+### `staticmethod()`
+
+This is a test staticmethod!
+
 ### `method_nodoc(self)`
 
 ## `ClassNoDoc(*args, **kwargs)`
@@ -278,3 +313,100 @@ This is a test sub-module in a file!
 
 ## `sub_module_function()`"""
     )
+
+
+def test_magic_bad_impl():
+    class CustomMagicWithoutGetWrapper(jdoc.Magic):
+        pass
+
+    with pytest.raises(NotImplementedError):
+        jdoc.PackageWrapper([CustomMagicWithoutGetWrapper()]).children()
+
+
+def test_indent():
+    assert jdoc.PackageWrapper([jdoc.Indent()]).children() == [jdoc.IndentWrapper()]
+
+
+def test_dedent():
+    assert jdoc.PackageWrapper([jdoc.Dedent()]).children() == [jdoc.DedentWrapper()]
+
+
+def test_horizontal_line():
+    assert jdoc.PackageWrapper([jdoc.HorizontalLine()]).children() == [
+        jdoc.HorizontalLineWrapper()
+    ]
+
+
+def test_include_children():
+    class Class(object):
+        def method(self):
+            pass
+
+    result_without_include_children = jdoc.PackageWrapper([Class]).children()
+    class_wrapper_without_children = jdoc.ClassWrapper(Class)
+
+    result_with_include_children = jdoc.PackageWrapper(
+        [jdoc.IncludeChildren(Class)]
+    ).children()
+    class_wrapper_with_children = jdoc.ClassWrapper(Class)
+    class_wrapper_with_children.include_children = True
+
+    assert result_without_include_children == [class_wrapper_without_children]
+    assert result_with_include_children == [class_wrapper_with_children]
+
+
+def test_table_of_contents():
+    toc_header = "Toc"
+    assert jdoc.PackageWrapper([jdoc.TableOfContents(toc_header)]).children() == [
+        jdoc.TableOfContentsWrapper(toc_header)
+    ]
+
+
+def test_document_empty(output_md_filename):
+    jdoc.document([], output_md_filename)
+
+    with open(output_md_filename) as file:
+        assert file.read() == ""
+
+
+def test_integration(output_md_filename):
+    class Class(object):
+        def method(self):
+            pass
+
+    objects = [
+        jdoc.TableOfContents("Toc"),
+        jdoc.HorizontalLine(),
+        jdoc.IncludeChildren(Class),
+        jdoc.HorizontalLine(),
+        Class,
+        jdoc.Indent(),
+        Class.method,
+        jdoc.Dedent(),
+    ]
+
+    expected_out = """# Toc
+
+* `Class(*args, **kwargs)`
+    * `method(self)`
+* `Class(*args, **kwargs)`
+    * `method(self)`
+
+---
+
+## `Class(*args, **kwargs)`
+
+### `method(self)`
+
+---
+
+## `Class(*args, **kwargs)`
+
+### `method(self)`"""
+
+    jdoc.document(objects, output_md_filename)
+
+    with open(output_md_filename) as file:
+        assert file.read().strip() == expected_out
+
+    assert jdoc.PackageWrapper(objects).full_doc().strip() == expected_out

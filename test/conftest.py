@@ -1,4 +1,5 @@
 import os
+import random
 
 import pytest
 
@@ -26,6 +27,16 @@ def class_nodoc():
 @pytest.fixture()
 def method():
     return jdoc.MethodWrapper(test_module.Class.method)
+
+
+@pytest.fixture()
+def classmethod():
+    return jdoc.ClassMethodWrapper(test_module.Class.classmethod.__func__)
+
+
+@pytest.fixture()
+def staticmethod():
+    return jdoc.StaticMethodWrapper(test_module.Class.staticmethod)
 
 
 @pytest.fixture()
@@ -73,3 +84,14 @@ def sub_module_file():
 @pytest.fixture()
 def sub_module_function():
     return jdoc.ObjectWrapper.from_object(sub_module_file_.sub_module_function)
+
+
+@pytest.fixture()
+def output_md_filename():
+    filename = os.path.join(
+        os.path.dirname(__file__),
+        "test_output",
+        "test_output_{}.md".format(random.random()),
+    )
+    yield filename
+    os.remove(filename)

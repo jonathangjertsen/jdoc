@@ -13,6 +13,7 @@ import jdoc as my_package
 
 if __name__ == "__main__":
     header_filename = os.path.join(os.path.dirname(__file__), "header.md")
+    testing_filename = os.path.join(os.path.dirname(__file__), "testing.md")
     document(
         [
             Markdown(header_filename),
@@ -32,6 +33,8 @@ if __name__ == "__main__":
             IncludeChildren(my_package.ObjectWrapper),
             IncludeChildren(my_package.Magic),
             Dedent(),
+            HorizontalLine(),
+            Markdown(testing_filename),
         ],
         filename=os.path.join(os.getcwd(), "README.md"),
     )

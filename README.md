@@ -138,3 +138,12 @@ Factory function which detects the type of `obj` and returns an appropriate subc
 
 ### `post_hook(self, children: List[jdoc.ObjectWrapper])`
 
+---
+
+# Testing
+
+To run the tests:
+
+```
+pytest --cov-report term-missing --cov jdoc -vvv
+```
